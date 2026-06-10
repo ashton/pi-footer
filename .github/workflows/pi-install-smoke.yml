@@ -22,8 +22,8 @@ jobs:
       matrix:
         package-manager:
           # - npm
-          - pnpm
-          # - bun
+          # - pnpm
+          - bun
         install-method: [npm, git, raw-url, absolute-path, relative-path]
         node-version:
           # - 22
