@@ -83,12 +83,13 @@ jobs:
               pnpm add -g @earendil-works/pi-coding-agent
               ;;
             bun)
-              bun_global_bin="$(bun pm bin -g)"
               bun_global_dir="$HOME/.bun/install/global"
-              mkdir -p "$bun_global_bin" "$bun_global_dir"
+              mkdir -p "$bun_global_dir"
               if [[ ! -f "$bun_global_dir/package.json" ]]; then
                 printf '{"private":true}\n' > "$bun_global_dir/package.json"
               fi
+              bun_global_bin="$(bun pm bin -g)"
+              mkdir -p "$bun_global_bin"
               echo "$bun_global_bin" >> "$GITHUB_PATH"
               export PATH="$bun_global_bin:$PATH"
               bun add -g @earendil-works/pi-coding-agent
