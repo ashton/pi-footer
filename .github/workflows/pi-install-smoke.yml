@@ -21,8 +21,8 @@ jobs:
       fail-fast: false
       matrix:
         package-manager:
-          - npm
-          # - pnpm
+          # - npm
+          - pnpm
           # - bun
         install-method: [npm, git, raw-url, absolute-path, relative-path]
         node-version:
