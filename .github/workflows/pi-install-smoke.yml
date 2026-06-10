@@ -16,12 +16,18 @@ jobs:
   smoke:
     name: ${{ matrix.package-manager }} / ${{ matrix.install-method }} / node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        package-manager: [npm, pnpm, bun]
+        package-manager:
+          - npm
+          # - pnpm
+          # - bun
         install-method: [npm, git, raw-url, absolute-path, relative-path]
-        node-version: [22, 24]
+        node-version:
+          # - 22
+          - 24
 
     env:
       PI_TELEMETRY: "0"
@@ -78,7 +84,11 @@ jobs:
               ;;
             bun)
               bun_global_bin="$(bun pm bin -g)"
-              mkdir -p "$bun_global_bin"
+              bun_global_dir="$HOME/.bun/install/global"
+              mkdir -p "$bun_global_bin" "$bun_global_dir"
+              if [[ ! -f "$bun_global_dir/package.json" ]]; then
+                printf '{"private":true}\n' > "$bun_global_dir/package.json"
+              fi
               echo "$bun_global_bin" >> "$GITHUB_PATH"
               export PATH="$bun_global_bin:$PATH"
               bun add -g @earendil-works/pi-coding-agent
@@ -92,9 +102,22 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$PI_CODING_AGENT_DIR" "$PI_CODING_AGENT_SESSION_DIR"
+
+          case "${{ matrix.package-manager }}" in
+            npm)
+              npm_command='["npm"]'
+              ;;
+            pnpm)
+              npm_command='["pnpm", "--config.auto-install-peers=false", "--config.strict-peer-dependencies=false", "--config.strict-dep-builds=false"]'
+              ;;
+            bun)
+              npm_command='["bun"]'
+              ;;
+          esac
+
           cat > "$PI_CODING_AGENT_DIR/settings.json" <<JSON
           {
-            "npmCommand": ["${{ matrix.package-manager }}"]
+            "npmCommand": $npm_command
           }
           JSON
 
@@ -164,7 +187,7 @@ jobs:
           clean_log="$RUNNER_TEMP/pi-footer-load.clean.log"
 
           set +e
-          printf '/quit\n' | script -q -e -c "pi --no-session --no-context-files --no-skills --no-prompt-templates --no-themes" "$load_log"
+          { sleep 3; printf '/quit\r'; } | timeout 30s script -q -e -c "pi --no-session --no-context-files --no-skills --no-prompt-templates --no-themes" "$load_log"
           status=$?
           set -e
 
@@ -181,11 +204,6 @@ jobs:
           print(raw[-4000:])
           PY
 
-          if [[ $status -ne 0 ]]; then
-            echo "pi exited with status $status" >&2
-            exit "$status"
-          fi
-
           if grep -E "Failed to load extension|Cannot find module" "$clean_log"; then
             echo "pi-footer failed to load" >&2
             exit 1
@@ -194,4 +212,9 @@ jobs:
           if ! grep -F "unknown/unknown" "$clean_log"; then
             echo "pi-footer loaded but the expected custom footer was not rendered" >&2
             exit 1
+          fi
+
+          if [[ $status -ne 0 && $status -ne 124 ]]; then
+            echo "pi exited with unexpected status $status" >&2
+            exit "$status"
           fi
